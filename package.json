@@ -1,0 +1,16 @@
+{
+  "name": "jsonld-context-workbench",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "JSON-LD 上下文解析工作台：本地 context 展开、来源链追踪、revision 快照会话",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test test/context.test.js test/store.test.js",
+    "test:api": "node test/api-standalone.js",
+    "test:all": "node --test test/context.test.js test/store.test.js && node test/api-standalone.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

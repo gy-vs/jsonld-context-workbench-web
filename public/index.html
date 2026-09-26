@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JSON-LD 上下文解析工作台</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">⌁</span>
+      <div>
+        <h1>JSON-LD 上下文解析工作台</h1>
+        <p class="sub">本地 context · compact IRI 展开 · 来源链追踪 · revision 快照</p>
+      </div>
+    </div>
+    <div class="session-box">
+      <label>会话
+        <select id="sessionSelect" title="解析会话（绑定资源快照）"></select>
+      </label>
+      <button id="newSessionBtn" class="btn ghost" title="创建新会话">＋ 新会话</button>
+      <span id="staleBadge" class="badge warn hidden" title="会话快照落后于资源 head">快照过期</span>
+    </div>
+  </header>
+
+  <!-- 窄屏 Tab 切换 -->
+  <nav class="mobile-tabs" id="mobileTabs">
+    <button data-tab="doc" class="active">文档/资源</button>
+    <button data-tab="trees">双树对照</button>
+    <button data-tab="chain">决策链 <span id="chainCount" class="mini-badge hidden">0</span></button>
+  </nav>
+
+  <main class="layout">
+    <!-- 左：输入区 -->
+    <section class="panel input-panel" data-panel="doc">
+      <div class="panel-head">
+        <h2>① 输入</h2>
+        <div class="row">
+          <button id="loadSeedBtn" class="btn ghost" title="载入演示文档">载入演示</button>
+          <button id="parseBtn" class="btn primary" title="绑定会话快照并展开">展开 ▶</button>
+        </div>
+      </div>
+
+      <div class="tabs-sub">
+        <button class="sub-tab active" data-sub="document">JSON 文档</button>
+        <button class="sub-tab" data-sub="resources">本地资源 <span id="resCount" class="mini-badge">0</span></button>
+        <button class="sub-tab" data-sub="snapshot">会话快照</button>
+        <button class="sub-tab" data-sub="limits">深度限制</button>
+      </div>
+
+      <div class="sub-body" id="sub-document">
+        <textarea id="docInput" class="code-input" spellcheck="false"
+          placeholder='{ "@context": ["my-context"], ... }'></textarea>
+        <div class="status-line">
+          <span id="docStatus" class="hint">未解析</span>
+        </div>
+      </div>
+
+      <div class="sub-body hidden" id="sub-resources">
+        <div class="res-toolbar">
+          <select id="resourceSelect" title="选择资源编辑"></select>
+          <button id="newResourceBtn" class="btn ghost">新建</button>
+          <button id="saveResourceBtn" class="btn">保存为新 revision</button>
+        </div>
+        <div class="meta-line">
+          <span id="resourceMeta" class="hint"></span>
+        </div>
+        <textarea id="resourceInput" class="code-input short" spellcheck="false"
+          placeholder='{ "@context": { "@vocab": "https://example.org/vocab#" } }'></textarea>
+        <div id="revisionList" class="revision-list"></div>
+      </div>
+
+      <div class="sub-body hidden" id="sub-snapshot">
+        <p class="hint">会话只从下列固定 revision 加载 context；文档引用未固定的资源会报“未知资源”。</p>
+        <div id="pinList" class="pin-list"></div>
+        <button id="rebindHeadBtn" class="btn ghost" title="把所有固定项刷新到 head">全部跟随 head 重绑</button>
+      </div>
+
+      <div class="sub-body hidden" id="sub-limits">
+        <label class="limit-row">最大 context 嵌套深度
+          <input type="number" id="maxContextDepth" value="64" min="1" max="10000" />
+        </label>
+        <label class="limit-row">最大文档嵌套深度
+          <input type="number" id="maxDocumentDepth" value="128" min="1" max="100000" />
+        </label>
+        <p class="hint">超过任一限制时解析中止并给出错误节点路径。</p>
+      </div>
+    </section>
+
+    <!-- 中：原文树 -->
+    <section class="panel" data-panel="trees" data-tree="orig">
+      <div class="panel-head"><h2>② 原文</h2>
+        <div class="trees-switch hidden" id="treeSwitchOrig">
+          <button class="btn small" data-gotree="exp">看展开 ›</button>
+        </div>
+        <div class="legend wide">
+          <span class="dot kw"></span>关键字
+          <span class="dot warn"></span>需关注
+        </div>
+      </div>
+      <div id="origTree" class="tree-scroll"><p class="placeholder">解析后在此显示原文树，点击任意字段可对照展开结果。</p></div>
+    </section>
+
+    <!-- 右：展开树 -->
+    <section class="panel" data-panel="trees" data-tree="exp">
+      <div class="panel-head"><h2>③ 展开结果</h2>
+        <div class="trees-switch hidden" id="treeSwitchExp">
+          <button class="btn small" data-gotree="orig">‹ 看原文</button>
+        </div>
+        <div class="legend wide">
+          <span class="dot term"></span>词项
+          <span class="dot prefix"></span>前缀
+          <span class="dot vocab"></span>词表
+          <span class="dot base"></span>base
+          <span class="dot bad"></span>未解析
+        </div>
+      </div>
+      <div id="expandedTree" class="tree-scroll"><p class="placeholder">展开节点显示 IRI、容器与类型；点击查看完整 context 决策链。</p></div>
+    </section>
+
+    <!-- 决策链（宽屏为第四栏，窄屏为 Tab） -->
+    <aside class="panel chain-panel" data-panel="chain">
+      <div class="panel-head">
+        <h2>④ 来源决策链</h2>
+        <span id="selectedPath" class="hint mono"></span>
+      </div>
+      <div id="chainBody" class="chain-scroll">
+        <p class="placeholder">选择双树中的任意展开节点，这里会显示：
+          原始字段 → compact IRI 解析机制（词项/前缀/@vocab/@base/未解析）
+          → 命中的词项定义与历次覆盖 → 经过的 context 层（嵌套资源/作用域/重置）。</p>
+      </div>
+    </aside>
+  </main>
+
+  <!-- 全局浮层错误/冲突 -->
+  <div id="modal" class="modal hidden">
+    <div class="modal-card">
+      <h3 id="modalTitle"></h3>
+      <pre id="modalBody" class="modal-body"></pre>
+      <div class="modal-actions">
+        <button id="modalRefreshBtn" class="btn hidden">拉取 head 到编辑器</button>
+        <button id="modalCloseBtn" class="btn primary">知道了</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 窄屏钻取面包屑 -->
+  <div id="drillBar" class="drill-bar hidden">
+    <button id="drillUpBtn" class="btn ghost small">‹ 返回上层</button>
+    <span id="drillCrumb" class="hint mono"></span>
+  </div>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
