@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>JSON-LD Context 解析工作台</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">{ }</span>
+      <h1>JSON-LD Context 解析工作台</h1>
+      <span class="offline-badge" title="所有 @context 只能引用本地不可变资源">离线 · 禁止公网 context</span>
+    </div>
+    <div class="session-bar">
+      <select id="sessionSelect" title="已保存的解析会话（绑定资源快照）"></select>
+      <button id="newSessionBtn" class="btn">另存为会话</button>
+      <span id="sessionInfo" class="session-info"></span>
+    </div>
+  </header>
+
+  <nav class="tabs" id="tabs">
+    <button class="tab active" data-tab="input">文档 / 资源</button>
+    <button class="tab" data-tab="trees">原文 ↔ 展开</button>
+    <button class="tab" data-tab="trace">决策链</button>
+    <button class="tab" data-tab="resources">资源库</button>
+  </nav>
+
+  <main class="layout">
+    <!-- ============ 左：文档输入 ============ -->
+    <section class="panel panel-input" data-panel="input">
+      <div class="card">
+        <div class="card-head">
+          <h2>① 输入 JSON-LD 文档</h2>
+          <div class="head-actions">
+            <button class="btn tiny" id="sampleBtn">载入示例</button>
+            <button class="btn tiny" id="formatBtn">格式化</button>
+          </div>
+        </div>
+        <textarea id="docInput" class="doc-editor" spellcheck="false"></textarea>
+        <div class="doc-actions">
+          <label class="field">
+            document base IRI
+            <input id="baseUrlInput" type="text" placeholder="（可选）https://example.com/things/" />
+          </label>
+          <button id="parseBtn" class="btn primary">展开 (Expand)</button>
+        </div>
+        <div id="docError" class="error-banner hidden"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>② 绑定本地 context 资源（快照）</h2></div>
+        <p class="hint">文档中的 <code>"local:名称"</code> 引用按下方勾选的资源 revision 解析；会话创建后 revision 被钉死。</p>
+        <div id="bindingsList" class="bindings"></div>
+      </div>
+
+      <div class="card mini">
+        <div class="card-head">
+          <h2>资源库（快速入口）</h2>
+          <a href="#" id="gotoResources" class="link">完整管理 →</a>
+        </div>
+        <div id="resourceQuickList" class="resource-quick"></div>
+      </div>
+    </section>
+
+    <!-- ============ 中：双树对照 ============ -->
+    <section class="panel panel-trees" data-panel="trees">
+      <div class="tree-grid">
+        <div class="card tree-card">
+          <div class="card-head"><h2>原始文档</h2><span class="tree-hint">高亮 = 被选中字段的来源</span></div>
+          <div id="sourceTree" class="tree"></div>
+        </div>
+        <div class="card tree-card">
+          <div class="card-head">
+            <h2>展开结果</h2>
+            <span class="tree-hint">点击任意节点查看来源与决策链</span>
+          </div>
+          <div id="expandedTree" class="tree"></div>
+        </div>
+      </div>
+      <div id="warnings" class="warnings"></div>
+    </section>
+
+    <!-- ============ 右：追踪 / 决策链 ============ -->
+    <section class="panel panel-trace" data-panel="trace">
+      <div class="card sticky">
+        <div class="card-head"><h2>③ 字段来源追踪</h2></div>
+        <div id="traceDetail" class="trace-detail">
+          <p class="placeholder">在「展开结果」中点击任意字段。<br/>将显示：原始字段路径、展开 IRI、词项解析方式与完整 context 决策链。</p>
+        </div>
+      </div>
+      <div class="card sticky">
+        <div class="card-head"><h2>完整 context 决策链</h2>
+          <button class="btn tiny" id="copyChainBtn">复制 JSON</button>
+        </div>
+        <div id="globalChain" class="chain-list"></div>
+      </div>
+    </section>
+
+    <!-- ============ 资源管理 ============ -->
+    <section class="panel panel-resources" data-panel="resources">
+      <div class="card">
+        <div class="card-head"><h2>本地 context 资源</h2></div>
+        <table class="resource-table">
+          <thead><tr><th>名称</th><th>最新 revision</th><th>修订数</th><th></th></tr></thead>
+          <tbody id="resourceTableBody"></tbody>
+        </table>
+      </div>
+
+      <div class="card" id="editorCard">
+        <div class="card-head">
+          <h2 id="editorTitle">编辑资源</h2>
+          <span id="editorBase" class="rev-pill"></span>
+        </div>
+        <div class="editor-name-row">
+          <input id="resourceName" type="text" placeholder="新资源名称（字母/数字/._-）" />
+          <button class="btn tiny" id="loadRevisionBtn" hidden>查看其他 revision</button>
+        </div>
+        <select id="revisionSelect" class="revision-select" hidden></select>
+        <textarea id="resourceBody" class="doc-editor taller" spellcheck="false"></textarea>
+        <div class="doc-actions">
+          <button id="saveResourceBtn" class="btn primary">保存（基于当前 revision）</button>
+          <button id="newResourceBtn" class="btn">新建资源</button>
+        </div>
+        <div id="resourceMsg" class="msg hidden"></div>
+        <div id="conflictBox" class="conflict hidden">
+          <strong>⚠ Revision 冲突</strong>
+          <p id="conflictText"></p>
+          <pre id="conflictBody" class="conflict-body"></pre>
+          <div class="doc-actions">
+            <button id="overwriteBtn" class="btn warn">以我的修改基于最新 revision 覆盖保存</button>
+            <button id="discardBtn" class="btn">放弃我的修改，载入最新</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

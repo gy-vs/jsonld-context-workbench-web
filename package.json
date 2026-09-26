@@ -1,0 +1,14 @@
+{
+  "name": "jsonld-context-workbench",
+  "version": "1.0.0",
+  "description": "JSON-LD context parsing workbench: local-only context resolution, expansion with provenance chains, immutable resource revisions",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test test/"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

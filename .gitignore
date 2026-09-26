@@ -6,3 +6,6 @@ coverage/
 !.env.example
 .DS_Store
 *.log
+
+# workbench data store
+data/
